@@ -1,5 +1,10 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+
+# Python 3.11. Single environment for root detectors + PFLlibMonza.
 torch
 torchvision
+
+# Detector NLP / MLP
 transformers
 datasets
 safetensors
@@ -7,10 +12,28 @@ evaluate
 peft
 accelerate
 bitsandbytes
+joblib
+tqdm
+
+# Scientific stack
 numpy
 pandas
 scipy
 scikit-learn
-joblib
+ujson
+h5py
+seaborn
+matplotlib
+cvxpy
+
+# PFLlib utilities
+click
+calmsize
+memory-profiler
+portalocker
+higher
+diffusers
+
+# Notebooks
 ipykernel
 jupyter
