@@ -119,16 +119,18 @@ class Server(object):
             self.current_num_join_clients = np.random.choice(range(self.num_join_clients, self.num_clients+1), 1, replace=False)[0]
         else:
             self.current_num_join_clients = self.num_join_clients
-        quarantined_ids =[]
+        quarantined_ids = set()
         for client_id, status in self.client_quarantine_dict.items():
         # Verifica a condição
             if status['roundsQuarent'] > 0:
-                quarantined_ids.append(client_id)
-        new_num_clients = self.clients.copy()
-        for idx in range(len(new_num_clients) - 1, -1, -1):
-            if idx in quarantined_ids:
-                del new_num_clients[idx]
-        self.current_num_join_clients = int(len(new_num_clients) * self.join_ratio)
+                quarantined_ids.add(client_id)
+        new_num_clients = [client for client in self.clients if client.id not in quarantined_ids]
+        if not new_num_clients:
+            print('[select_clients] todos os clientes estao em quarentena; mantendo o modelo global neste round.')
+            self.current_num_join_clients = 0
+            return []
+        self.current_num_join_clients = max(1, int(len(new_num_clients) * self.join_ratio))
+        self.current_num_join_clients = min(self.current_num_join_clients, len(new_num_clients))
         selected_clients = list(np.random.choice(new_num_clients, self.current_num_join_clients, replace=False))
         print(len(selected_clients))
         return selected_clients
@@ -145,10 +147,22 @@ class Server(object):
             client.send_time_cost['total_cost'] += 2 * (time.time() - start_time)
 
     def receive_models(self):
-        assert (len(self.selected_clients) > 0)
+        if len(self.selected_clients) == 0:
+            self.uploaded_ids = []
+            self.uploaded_weights = []
+            self.uploaded_models = []
+            self.ids = []
+            return
 
-        active_clients = random.sample(
-            self.selected_clients, int((1-self.client_drop_rate) * self.current_num_join_clients))
+        active_count = int((1 - self.client_drop_rate) * self.current_num_join_clients)
+        active_count = min(max(0, active_count), len(self.selected_clients))
+        if active_count == 0:
+            self.uploaded_ids = []
+            self.uploaded_weights = []
+            self.uploaded_models = []
+            self.ids = []
+            return
+        active_clients = random.sample(self.selected_clients, active_count)
 
         self.uploaded_ids = []
         self.uploaded_weights = []
@@ -167,7 +181,12 @@ class Server(object):
                 self.uploaded_weights.append(client.train_samples)
                 self.uploaded_models.append(client.send_local_model(self.current_round))
                 self.ids.append(client.id)
-                
+        if tot_samples <= 0:
+            self.uploaded_weights = []
+            self.uploaded_models = []
+            self.uploaded_ids = []
+            self.ids = []
+            return
         for i, w in enumerate(self.uploaded_weights):
             self.uploaded_weights[i] = w / tot_samples
 
@@ -209,6 +228,8 @@ class Server(object):
         #Calcula a matriz de similaridade de cosseno entre todos os clientes e retorna a matriz + os scores médios de cada cliente.
 
         num_clients = len(self.uploaded_models)
+        if num_clients < 2:
+            return np.eye(num_clients), {self.ids[i]: 0.0 for i in range(num_clients)}
         
         #Flatten todos os modelos e empilhar em um único tensor
         all_params = torch.stack([self.flatten_model_params(model) for model in self.uploaded_models])  # shape: [num_clients, num_features]
@@ -259,6 +280,8 @@ class Server(object):
     def calculate_similarity_scores(self):
         #Similaridade entre todos os clientes
         num_clients = len(self.uploaded_models)
+        if num_clients < 2:
+            return {self.ids[i]: 0.0 for i in range(num_clients)}
         similarity_matrix = np.zeros((num_clients, num_clients))  # Matriz de similaridade
         
         for i in range(len(self.uploaded_models)):
@@ -351,7 +374,9 @@ class Server(object):
         return client_entropies
 
     def aggregate_parameters(self):
-        assert (len(self.uploaded_models) > 0)
+        if len(self.uploaded_models) == 0:
+            print('[aggregate] nenhum upload valido; mantendo o modelo global anterior.')
+            return
 
         self.global_model = copy.deepcopy(self.uploaded_models[0])
         for param in self.global_model.parameters():

@@ -18,7 +18,8 @@ class clientAVG(Client):
 
         max_local_epochs = self.local_epochs
         if self.train_slow:
-            max_local_epochs = np.random.randint(1, max_local_epochs // 2)
+            slow_upper = max(2, max_local_epochs // 2 + 1)
+            max_local_epochs = max(1, np.random.randint(1, slow_upper))
 
         for epoch in range(max_local_epochs):
             for i, (x, y) in enumerate(trainloader):
