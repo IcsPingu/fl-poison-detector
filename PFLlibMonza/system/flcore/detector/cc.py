@@ -20,18 +20,41 @@ from typing import Dict, List, Mapping, Sequence
 
 import torch
 from peft import PeftModel
+from safetensors.torch import load_file
 from transformers import AutoModelForSequenceClassification
 
 PAD_ID = 0
 NUM_BINS = 10000
 MAX_LENGTH = 512
 MODEL_NAME = 'distilbert-base-uncased'
+CANONICAL_WEIGHT_ALIASES = [
+    ('conv1.0.weight', 'base.conv1.0.weight'),
+    ('conv2.0.weight', 'base.conv2.0.weight'),
+    ('fc1.0.weight', 'base.fc1.0.weight'),
+    ('fc.weight', 'head.weight'),
+]
 
 
 def _normalize_layer(t: torch.Tensor) -> torch.Tensor:
     lo = torch.quantile(t, 0.05)
     hi = torch.quantile(t, 0.95)
     return ((t - lo) / (hi - lo + 1e-8)).clamp(0.0, 1.0)
+
+
+def _ordered_weight_items(state_dict: Mapping[str, torch.Tensor]):
+    used = set()
+    ordered = []
+    for aliases in CANONICAL_WEIGHT_ALIASES:
+        key = next((candidate for candidate in aliases if candidate in state_dict), None)
+        if key is not None:
+            ordered.append((key, state_dict[key]))
+            used.add(key)
+    remaining = [
+        (k, state_dict[k])
+        for k in sorted(state_dict)
+        if 'weight' in k and k not in used
+    ]
+    return ordered + remaining
 
 
 def preprocess_weights(
@@ -41,8 +64,7 @@ def preprocess_weights(
 ) -> List[int]:
     parts = [
         _normalize_layer(v.detach().to(dtype=torch.float32).flatten())
-        for k, v in state_dict.items()
-        if 'weight' in k
+        for _, v in _ordered_weight_items(state_dict)
     ]
     weights_norm = torch.cat(parts)
     n = len(weights_norm)
@@ -86,6 +108,7 @@ class ClientCheck:
             MODEL_NAME, num_labels=2, ignore_mismatched_sizes=True
         )
         self.model = PeftModel.from_pretrained(base, str(self.model_dir))
+        self._load_legacy_classifier_head()
         self.model.eval().to(self.device)
 
         self.threshold = None
@@ -94,6 +117,32 @@ class ClientCheck:
             with open(metrics_path) as f:
                 m = json.load(f)
             self.threshold = float(m.get('tuned', {}).get('threshold', 0.0))
+
+    def _load_legacy_classifier_head(self) -> None:
+        """Compatibilidade com artifacts LoRA antigos que salvaram a head fora de modules_to_save."""
+        adapter_path = self.model_dir / 'adapter_model.safetensors'
+        tensors = load_file(str(adapter_path))
+        legacy_map = {
+            'base_model.model.pre_classifier.weight': self.model.base_model.model.pre_classifier.weight,
+            'base_model.model.pre_classifier.bias': self.model.base_model.model.pre_classifier.bias,
+            'base_model.model.classifier.weight': self.model.base_model.model.classifier.weight,
+            'base_model.model.classifier.bias': self.model.base_model.model.classifier.bias,
+        }
+        loaded = []
+        with torch.no_grad():
+            for key, param in legacy_map.items():
+                tensor = tensors.get(key)
+                if tensor is None:
+                    continue
+                if tuple(tensor.shape) != tuple(param.shape):
+                    raise ValueError(
+                        f"Head DistilBERT incompatível em {adapter_path}: "
+                        f"{key} tem shape {tuple(tensor.shape)}, esperado {tuple(param.shape)}"
+                    )
+                param.copy_(tensor.to(device=param.device, dtype=param.dtype))
+                loaded.append(key)
+        if loaded:
+            print(f"[cc] Head DistilBERT carregada do adapter legado: {len(loaded)}/4 tensores.")
 
     @torch.no_grad()
     def classify(self, state_dict: Mapping[str, torch.Tensor]) -> Dict:

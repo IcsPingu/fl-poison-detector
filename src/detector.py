@@ -43,6 +43,12 @@ TEST_SIZE = 0.2
 FINAL_MODEL_DIR = os.environ.get('FINAL_MODEL_DIR', './detector_final')
 RUN_DIR = os.environ.get('RUN_DIR', './detector_runs/best')
 MODEL_NAME = 'distilbert-base-uncased'
+CANONICAL_WEIGHT_ALIASES = [
+    ('conv1.0.weight', 'base.conv1.0.weight'),
+    ('conv2.0.weight', 'base.conv2.0.weight'),
+    ('fc1.0.weight', 'base.fc1.0.weight'),
+    ('fc.weight', 'head.weight'),
+]
 
 # Carregadas em main(); compute_metrics referencia para casar com a assinatura
 # (eval_pred) -> dict que o Trainer espera.
@@ -60,6 +66,22 @@ def _normalize_layer(t: torch.Tensor) -> torch.Tensor:
     return ((t - lo) / (hi - lo + 1e-8)).clamp(0.0, 1.0)
 
 
+def _ordered_weight_items(state_dict):
+    used = set()
+    ordered = []
+    for aliases in CANONICAL_WEIGHT_ALIASES:
+        key = next((candidate for candidate in aliases if candidate in state_dict), None)
+        if key is not None:
+            ordered.append((key, state_dict[key]))
+            used.add(key)
+    remaining = [
+        (k, state_dict[k])
+        for k in sorted(state_dict)
+        if 'weight' in k and k not in used
+    ]
+    return ordered + remaining
+
+
 def preprocess_weights(state_dict, max_length=MAX_LENGTH, num_bins=NUM_BINS) -> List[int]:
     """Normaliza cada camada com 'weight' no nome, concatena e amostra
     `max_length` posicoes uniformemente distribuidas (linspace) sobre o vetor
@@ -67,7 +89,7 @@ def preprocess_weights(state_dict, max_length=MAX_LENGTH, num_bins=NUM_BINS) -> 
 
     Bins ocupam [1, num_bins]; PAD_ID=0 fica reservado pra padding.
     """
-    parts = [_normalize_layer(v.flatten().float()) for k, v in state_dict.items() if 'weight' in k]
+    parts = [_normalize_layer(v.flatten().float()) for _, v in _ordered_weight_items(state_dict)]
     weights_norm = torch.cat(parts)
     n = len(weights_norm)
     if n >= max_length:
