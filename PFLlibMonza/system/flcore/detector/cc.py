@@ -70,22 +70,30 @@ class ClientCheck:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.device = torch.device(device)
 
+        required = [
+            self.model_dir / 'adapter_config.json',
+            self.model_dir / 'adapter_model.safetensors',
+            self.model_dir / 'metrics.json',
+        ]
+        missing = [str(path) for path in required if not path.exists()]
+        if missing:
+            raise FileNotFoundError(
+                f"Detector DistilBERT incompleto em {self.model_dir}. "
+                f"Arquivos ausentes: {missing}"
+            )
+
         base = AutoModelForSequenceClassification.from_pretrained(
             MODEL_NAME, num_labels=2, ignore_mismatched_sizes=True
         )
-        try:
-            self.model = PeftModel.from_pretrained(base, str(self.model_dir))
-        except Exception:
-            self.model = base
+        self.model = PeftModel.from_pretrained(base, str(self.model_dir))
         self.model.eval().to(self.device)
 
         self.threshold = None
         if use_tuned_threshold:
             metrics_path = self.model_dir / 'metrics.json'
-            if metrics_path.exists():
-                with open(metrics_path) as f:
-                    m = json.load(f)
-                self.threshold = float(m.get('tuned', {}).get('threshold', 0.0))
+            with open(metrics_path) as f:
+                m = json.load(f)
+            self.threshold = float(m.get('tuned', {}).get('threshold', 0.0))
 
     @torch.no_grad()
     def classify(self, state_dict: Mapping[str, torch.Tensor]) -> Dict:
