@@ -48,7 +48,8 @@ def load_cc_type(system_dir: Path) -> pd.DataFrame:
 
 
 def latest_run(df: pd.DataFrame) -> pd.DataFrame:
-    starts = df.index[df["Round"].astype(int) <= df["Round"].astype(int).shift(fill_value=10**9)].tolist()
+    rounds = df["Round"].astype(int)
+    starts = df.index[rounds < rounds.shift(fill_value=rounds.iloc[0])].tolist()
     start = starts[-1] if starts else 0
     return df.loc[start:].copy()
 
