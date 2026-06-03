@@ -18,8 +18,7 @@ def random_param(model, device = 'cpu'):
     copy_model = copy.deepcopy(model)
     for param in copy_model.parameters():
         # gera valores aleatorios para serem utilizados como parametros
-        param_random = torch.rand(size=param.shape)
-        param.data = param_random.to(device)
+        param.data = torch.rand_like(param.data)
 
     return copy_model
 
