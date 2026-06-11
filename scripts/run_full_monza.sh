@@ -2,15 +2,15 @@
 set -euo pipefail
 
 ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-VENV_PY="${VENV_PY:-$ROOT/.venv/bin/python}"
-JUPYTER="${JUPYTER:-$ROOT/.venv/bin/jupyter}"
+VENV_PY="python"
+JUPYTER="jupyter"
 SYSTEM_DIR="$ROOT/PFLlibMonza/system"
 DATASET_DIR="$ROOT/PFLlibMonza/dataset"
-DATASET_NAME="${DATASET_NAME:-MNIST}"
+DATASET_NAME="${DATASET_NAME:-Cifar10}"
 MODEL="${MODEL:-CNN}"
 GLOBAL_ROUNDS="${GLOBAL_ROUNDS:-50}"
-NUM_CLIENTS="${NUM_CLIENTS:-100}"
-NUM_MALICIOUS="${NUM_MALICIOUS:-30}"
+NUM_CLIENTS="${NUM_CLIENTS:-30}"
+NUM_MALICIOUS="${NUM_MALICIOUS:-9}"
 JOIN_RATIO="${JOIN_RATIO:-1}"
 DEVICE_ID="${DEVICE_ID:-0}"
 LOCAL_STEPS="${LOCAL_STEPS:-1}"
@@ -19,10 +19,10 @@ RATE_FAKE="${RATE_FAKE:-1}"
 ROUND_INIT_ATK="${ROUND_INIT_ATK:-5}"
 DUMP_START_ROUND="${DUMP_START_ROUND:-$((ROUND_INIT_ATK + 1))}"
 
-STATE_DICTS_DIR="${STATE_DICTS_DIR:-$ROOT/state_dicts_monza_cnn_mnist}"
-BERT_DIR="${BERT_DIR:-$ROOT/detector_monza_cnn_mnist}"
-MLP_DIR="${MLP_DIR:-$ROOT/detector_mlp_monza_cnn_mnist}"
-RUN_DIR="${RUN_DIR:-$ROOT/detector_runs/monza_cnn_mnist}"
+STATE_DICTS_DIR="${STATE_DICTS_DIR:-$ROOT/state_dicts_monza_cnn_cifar10}"
+BERT_DIR="${BERT_DIR:-$ROOT/detector_monza_cnn_cifar10}"
+MLP_DIR="${MLP_DIR:-$ROOT/detector_mlp_monza_cnn_cifar10}"
+RUN_DIR="${RUN_DIR:-$ROOT/detector_runs/monza_cnn_cifar10}"
 ANALYSIS_OUT="${ANALYSIS_OUT:-$ROOT/analysis_outputs}"
 PUBLIC_VAL_DIR="${PUBLIC_VAL_DIR:-$DATASET_DIR/$DATASET_NAME/public_val}"
 RUN_LOG="${RUN_LOG:-$ROOT/rerun_full_$(date +%Y%m%d_%H%M%S).log}"
@@ -41,6 +41,7 @@ run_monza() {
   "$VENV_PY" -u main.py \
     -m "$MODEL" \
     -data "$DATASET_NAME" \
+    -lr 0.001 \
     -nmc "$NUM_MALICIOUS" \
     -nc "$NUM_CLIENTS" \
     -jr "$JOIN_RATIO" \
@@ -85,26 +86,41 @@ print("torch", torch.__version__, "cuda", torch.cuda.is_available())
 print("gpu", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE")
 print("pyarrow", pa.__version__, "PyExtensionType", hasattr(pa, "PyExtensionType"))
 PY
-
-	  log "Generate ${DATASET_NAME} partition"
-	  rm -rf "$DATASET_DIR/$DATASET_NAME"
-	  cd "$DATASET_DIR"
-	  "$VENV_PY" generate_MNIST.py noniid - dir --num-clients "$NUM_CLIENTS"
-	  cd "$ROOT"
+log "Generate ${DATASET_NAME} partition"
+  rm -rf "$DATASET_DIR/$DATASET_NAME"
+  cd "$DATASET_DIR"
+  "$VENV_PY" generate_cifar10.py noniid - dir --num-clients "$NUM_CLIENTS"
+  cd "$ROOT"
   "$VENV_PY" scripts/create_label_flip_train_mal.py \
     --dataset-dir "$DATASET_DIR/$DATASET_NAME" \
     --num-classes 10
-	  printf 'train=%s train_mal=%s\n' \
-	    "$(find "$DATASET_DIR/$DATASET_NAME/train" -name '*.npz' | wc -l)" \
-	    "$(find "$DATASET_DIR/$DATASET_NAME/train_mal" -name '*.npz' | wc -l)"
-	  printf 'public_val=%s test=%s\n' \
-	    "$(find "$DATASET_DIR/$DATASET_NAME/public_val" -name '*.npz' | wc -l)" \
-	    "$(find "$DATASET_DIR/$DATASET_NAME/test" -name '*.npz' | wc -l)"
+
+  printf 'train=%s train_mal=%s\n' \
+    "$(ls -1 "$DATASET_DIR/$DATASET_NAME/train"/*.npz 2>/dev/null | wc -l)" \
+    "$(ls -1 "$DATASET_DIR/$DATASET_NAME/train_mal"/*.npz 2>/dev/null | wc -l)"
+    
+  printf 'public_val=%s test=%s\n' \
+    "$(ls -1 "$DATASET_DIR/$DATASET_NAME/public_val"/*.npz 2>/dev/null | wc -l)" \
+    "$(ls -1 "$DATASET_DIR/$DATASET_NAME/test"/*.npz 2>/dev/null | wc -l)"
 
   log "Dump MONZA state_dicts"
   run_monza 5 --dump_state_dicts "$STATE_DICTS_DIR" --dump_start_round "$DUMP_START_ROUND"
-  find "$STATE_DICTS_DIR" -name '*.json' | wc -l
+  ls -1 "$STATE_DICTS_DIR"/*.json 2>/dev/null | wc -l
   du -sh "$STATE_DICTS_DIR"
+    
+  printf 'train=%s train_mal=%s\n' \
+    "$(ls -1 "$DATASET_DIR/$DATASET_NAME/train"/*.npz 2>/dev/null | wc -l)" \
+    "$(ls -1 "$DATASET_DIR/$DATASET_NAME/train_mal"/*.npz 2>/dev/null | wc -l)"
+    
+  printf 'public_val=%s test=%s\n' \
+    "$(ls -1 "$DATASET_DIR/$DATASET_NAME/public_val"/*.npz 2>/dev/null | wc -l)" \
+    "$(ls -1 "$DATASET_DIR/$DATASET_NAME/test"/*.npz 2>/dev/null | wc -l)"
+
+  log "Dump MONZA state_dicts"
+  run_monza 5 --dump_state_dicts "$STATE_DICTS_DIR" --dump_start_round "$DUMP_START_ROUND"
+  ls -1 "$STATE_DICTS_DIR"/*.json 2>/dev/null | wc -l
+  du -sh "$STATE_DICTS_DIR"
+
 
   log "Train DistilBERT detector"
   STATE_DICTS_DIR="$STATE_DICTS_DIR" \
@@ -120,7 +136,7 @@ PY
     "$VENV_PY" -u src/detector_mlp.py
 
   log "Run baseline CCs"
-  run_monza 2
+  run_monza 5
   run_monza 3
 
   log "Run detector CCs"

@@ -247,6 +247,8 @@ class FedAvg(Server):
         return FPR, FRR
 
     def train(self):
+        # 1. Create a persistent backup of the last stable model
+        last_safe_state = {k: v.detach().clone() for k, v in self.global_model.state_dict().items()}
         
         for i in range(self.global_rounds+1):
             s_t = time.time()
@@ -265,7 +267,31 @@ class FedAvg(Server):
             if i%self.eval_gap == 0:
                 print(f"\n-------------Round number: {i}-------------")
                 print("\nEvaluate global model")
-                self.evaluate()
+                
+                acc_len_before = len(self.rs_test_acc)
+                try:
+                    self.evaluate()
+                    
+                    import math
+                    current_loss = self.rs_train_loss[-1]
+                    if math.isnan(current_loss) or current_loss > 500:
+                        raise ValueError(f"Loss inaceitavel: {current_loss}")
+                        
+                    # Update safe backup if evaluation passes
+                    last_safe_state = {k: v.detach().clone() for k, v in self.global_model.state_dict().items()}
+                    
+                except Exception as e:
+                    print(f"[!] Alerta de Colapso: {e}")
+                    print("[*] Revertendo o modelo global para o ultimo estado seguro...")
+                    
+                    self.global_model.load_state_dict(last_safe_state)
+                    
+                    if len(self.rs_test_acc) > acc_len_before:
+                        self.rs_test_acc.pop()
+                        self.rs_train_loss.pop()
+                        
+                    print("Reavaliando o modelo restaurado...")
+                    self.evaluate()
             round_detail_rows = []
             #for client in self.selected_clients:
             #    client.train()
@@ -358,6 +384,7 @@ class FedAvg(Server):
                                         found += 1
                                     print(f"Removing client {client_id} with score {score:.4f} (below average)")
                                     self.set_client_quarantine(client_id)
+                                    self.removed_clients.append(client_id)
                                     del self.uploaded_models[idx]
                                     del self.ids[idx]
                                     del self.uploaded_ids[idx]

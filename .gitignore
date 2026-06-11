@@ -82,3 +82,16 @@ PFLlibMonza/system/*.deb
 PFLlibMonza/results/
 PFLlibMonza/results.zip
 PFLlibMonza/.claude/
+
+
+# Ignore massive generated artifacts
+state_dicts_*/
+detector_*/
+analysis_outputs/
+plot_*.png
+
+# Ignore dataset files
+PFLlibMonza/dataset/raw/
+PFLlibMonza/dataset/Cifar10/
+*.npz
+*.tar.gz

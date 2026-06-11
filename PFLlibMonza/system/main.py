@@ -3,6 +3,9 @@ import copy
 import torch
 import argparse
 import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import time
 import warnings
 import numpy as np
