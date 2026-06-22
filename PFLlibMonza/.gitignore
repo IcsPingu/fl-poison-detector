@@ -1,0 +1,7 @@
+/results/
+/system/models
+*__pycache__*
+/dataset/MNIST/
+/dataset/Cifar*/
+/dataset/COVIDx/
+/dataset/raw/

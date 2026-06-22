@@ -1,0 +1,254 @@
+{
+  "1_leakage": {
+    "distilbert": {
+      "split_seed": 42,
+      "model_seed": 15880,
+      "default_argmax": {
+        "f1": 0.8815426997245179,
+        "precision": 0.9815950920245399,
+        "recall": 0.8
+      },
+      "tuned": {
+        "threshold": 0.03257906436920166,
+        "f1": 0.8839779005524862,
+        "precision": 0.9876543209876543,
+        "recall": 0.8,
+        "note": "threshold tuned on eval set (in-sample, optimistic)"
+      }
+    },
+    "mlp": {
+      "best_epoch": 9,
+      "metrics": {
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "by_type": {
+        "malicious_zeros": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "benign": {
+          "total": 200,
+          "predicted_malicious": 0
+        },
+        "malicious_random": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "malicious_shuffle": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "malicious_noise": {
+          "total": 50,
+          "predicted_malicious": 50
+        }
+      },
+      "config": {
+        "seed": 42,
+        "hidden": [
+          128,
+          64
+        ],
+        "dropout": 0.3,
+        "lr": 0.001,
+        "weight_decay": 0.0001,
+        "epochs": 60,
+        "batch_size": 32,
+        "patience": 15,
+        "test_size": 0.2
+      }
+    }
+  },
+  "2_hard": {
+    "distilbert": {
+      "split_seed": 42,
+      "model_seed": 15880,
+      "default_argmax": {
+        "f1": 0.8882978723404256,
+        "precision": 0.9488636363636364,
+        "recall": 0.835
+      },
+      "tuned": {
+        "threshold": 0.352154016494751,
+        "f1": 0.894878706199461,
+        "precision": 0.9707602339181286,
+        "recall": 0.83,
+        "note": "threshold tuned on eval set (in-sample, optimistic)"
+      }
+    },
+    "mlp": {
+      "best_epoch": 13,
+      "metrics": {
+        "accuracy": 0.965,
+        "precision": 0.9894736842105263,
+        "recall": 0.94,
+        "f1": 0.9641025641025641
+      },
+      "by_type": {
+        "malicious_zeros": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "benign": {
+          "total": 200,
+          "predicted_malicious": 2
+        },
+        "malicious_random": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "malicious_shuffle": {
+          "total": 50,
+          "predicted_malicious": 40
+        },
+        "malicious_noise": {
+          "total": 50,
+          "predicted_malicious": 48
+        }
+      },
+      "config": {
+        "seed": 42,
+        "hidden": [
+          128,
+          64
+        ],
+        "dropout": 0.3,
+        "lr": 0.001,
+        "weight_decay": 0.0001,
+        "epochs": 60,
+        "batch_size": 32,
+        "patience": 15,
+        "test_size": 0.2
+      }
+    }
+  },
+  "3_pretrained_hard": {
+    "distilbert": {
+      "split_seed": 42,
+      "model_seed": 15880,
+      "default_argmax": {
+        "f1": 0.8681318681318682,
+        "precision": 0.9634146341463414,
+        "recall": 0.79
+      },
+      "tuned": {
+        "threshold": -1.4574129581451416,
+        "f1": 0.8814432989690721,
+        "precision": 0.9095744680851063,
+        "recall": 0.855,
+        "note": "threshold tuned on eval set (in-sample, optimistic)"
+      }
+    },
+    "mlp": {
+      "best_epoch": 22,
+      "metrics": {
+        "accuracy": 0.99,
+        "precision": 1.0,
+        "recall": 0.98,
+        "f1": 0.98989898989899
+      },
+      "by_type": {
+        "malicious_zeros": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "benign": {
+          "total": 200,
+          "predicted_malicious": 0
+        },
+        "malicious_random": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "malicious_shuffle": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "malicious_noise": {
+          "total": 50,
+          "predicted_malicious": 46
+        }
+      },
+      "config": {
+        "seed": 42,
+        "hidden": [
+          128,
+          64
+        ],
+        "dropout": 0.3,
+        "lr": 0.001,
+        "weight_decay": 0.0001,
+        "epochs": 60,
+        "batch_size": 32,
+        "patience": 15,
+        "test_size": 0.2
+      }
+    }
+  },
+  "4_pretrained_easy": {
+    "distilbert": {
+      "split_seed": 42,
+      "model_seed": 15880,
+      "default_argmax": {
+        "f1": 0.8526315789473684,
+        "precision": 0.9,
+        "recall": 0.81
+      },
+      "tuned": {
+        "threshold": 3.054166316986084,
+        "f1": 0.8587570621468926,
+        "precision": 0.987012987012987,
+        "recall": 0.76,
+        "note": "threshold tuned on eval set (in-sample, optimistic)"
+      }
+    },
+    "mlp": {
+      "best_epoch": 2,
+      "metrics": {
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "by_type": {
+        "malicious_zeros": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "benign": {
+          "total": 200,
+          "predicted_malicious": 0
+        },
+        "malicious_random": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "malicious_shuffle": {
+          "total": 50,
+          "predicted_malicious": 50
+        },
+        "malicious_noise": {
+          "total": 50,
+          "predicted_malicious": 50
+        }
+      },
+      "config": {
+        "seed": 42,
+        "hidden": [
+          128,
+          64
+        ],
+        "dropout": 0.3,
+        "lr": 0.001,
+        "weight_decay": 0.0001,
+        "epochs": 60,
+        "batch_size": 32,
+        "patience": 15,
+        "test_size": 0.2
+      }
+    }
+  }
+}
